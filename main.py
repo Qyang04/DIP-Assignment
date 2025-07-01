@@ -63,4 +63,4 @@ def resizeAndOverlayVideo(foregroundVideoPath, backgroundVideoPath):
     backgroundVideo.release()
     cv2.destroyAllWindows()
     
-resizeAndOverlayVideo(r"C:\Users\Sia Jia Le\OneDrive - Sunway Education Group\Digital Image Processing\Group Assignment\CSC2014- Group Assignment_Aug-2025\talking.mp4", r"C:\Users\Sia Jia Le\OneDrive - Sunway Education Group\Digital Image Processing\Group Assignment\CSC2014- Group Assignment_Aug-2025\Recorded Videos (4)\traffic.mp4")
+resizeAndOverlayVideo(r"C:\Users\Sia Jia Le\OneDrive - Sunway Education Group\Digital Image Processing\Group Assignment\CSC2014- Group Assignment_Aug-2025\talking.mp4", r"C:\Users\Sia Jia Le\OneDrive - Sunway Education Group\Digital Image Processing\Group Assignment\CSC2014- Group Assignment_Aug-2025\Recorded Videos (4)\singapore.mp4")
