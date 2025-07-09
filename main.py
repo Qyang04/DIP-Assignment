@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+from matplotlib import pyplot as pt
+
 def calculate_brightness(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) # Convert the frame to grayscale
     return np.mean(gray)
@@ -99,7 +101,12 @@ def process_video(input_path, output_path):
     # Detect if the video is taken during daytime or nighttime after analyzing all frames
     average_brightness = np.mean(brightness_values)
     is_night = classify_day_night(brightness_values) # If the average brightness is less than threshold value, then it is nighttime
-    print(f"Average brightness of the video: {average_brightness:.2f} | Nightime: {is_night}")
+    print(f"Average brightness of the video: {average_brightness:.2f}")
+
+    if is_night:
+        print(f"The {input_path} video is taken during nighttime. Brightness value will be adjusted.")
+    else:
+        print(f"The {input_path} video is taken during daytime. No brightness value will be adjusted.")
 
     # Process each frame
     vid.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Rewind video
@@ -140,6 +147,16 @@ def process_video(input_path, output_path):
     vid.release()
 #    talking_vid.release()
     out.release()
+
+# Plot the histogram to visualize the brightness of each video
+    pt.figure()
+    pt.hist(brightness_values, bins = 60, color = 'grey')
+    pt.xlabel("Average Brightness Value")
+    pt.ylabel("Number of Frames")
+    pt.title(f"Histogram of Average Brightness - {input_path}")
+    pt.xlim([0, 256])
+    pt.grid(False)
+    pt.show()
     
     print(f"\nProcessing complete. Output saved to {output_path}")
     
