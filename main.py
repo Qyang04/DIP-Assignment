@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from matplotlib import pyplot as pt
+from matplotlib import pyplot as plt
 
 # Calculate the brightness of the video
 def calculate_brightness(frame):
@@ -153,14 +153,14 @@ def process_video(input_path, output_path):
     out.release()
 
     # Plot the histogram to visualize the brightness of each video
-    pt.figure()
-    pt.hist(brightness_values, bins = 60, color = 'grey')
-    pt.xlabel("Average Brightness Value")
-    pt.ylabel("Number of Frames")
-    pt.title(f"Histogram of Average Brightness - {input_path}")
-    pt.xlim([0, 256])
-    pt.grid(False)
-    pt.show()
+    plt.figure()
+    plt.hist(brightness_values, bins = 60, color = 'grey')
+    plt.xlabel("Average Brightness Value")
+    plt.ylabel("Number of Frames")
+    plt.title(f"Histogram of Average Brightness - {input_path}")
+    plt.xlim([0, 256])
+    plt.grid(False)
+    plt.show()
     
     print(f"\nProcessing complete. Output saved to {output_path}")
     
