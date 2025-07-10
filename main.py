@@ -59,3 +59,6 @@ vid.release()
 end_vid.release()
 out.release()
 cv2.destroyAllWindows()
+
+
+
