@@ -92,7 +92,7 @@ def process_video(input_path, output_path, talking_path):
     if total_no_frames < total_no_foreground_frames:
         total_frames = total_no_foreground_frames
     else:
-        total_no_frames = total_no_foreground_frames
+        total_frames = total_no_frames
     
     # Initialize VideoWriter
     fourcc = cv2.VideoWriter_fourcc(*'MJPG')
