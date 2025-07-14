@@ -205,5 +205,5 @@ def main():
     print(f"Total paragraphs extracted: {total_files}")
     print("==============================================") 
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     main()
