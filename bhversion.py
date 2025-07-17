@@ -166,7 +166,7 @@ def save_paragraphs(image_name, binary, column_bounds, original_img):
     base_name = os.path.splitext(os.path.basename(image_name))[0]
 
     # Create subfolder inside "outputs_images" for this image
-    output_folder = os.path.join("outputs_images", base_name)
+    output_folder = os.path.join("outputs_Task B", base_name)
     os.makedirs(output_folder, exist_ok=True)  # Ensure output subfolder exists
     
     if table_boxes:
