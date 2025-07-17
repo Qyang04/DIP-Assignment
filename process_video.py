@@ -239,8 +239,7 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     plt.show()
 
     print(f"\nProcessing complete. Output saved to {output_path}")
-
-
+    
 if __name__ == "__main__":
     # Check the occurance of output folder
     output_folder = "outputs_Task A"
