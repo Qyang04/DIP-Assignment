@@ -1,14 +1,22 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jul 17 12:39:13 2025
+
+@author: Sia Jia Le
+"""
+
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
 # List of image files to process 
-img_files = ["001.png", "002.png", "003.png", "004.png", "005.png", "006.png", "007.png", "008.png"]
+img_files = ["Converted Paper (8)/001.png", "Converted Paper (8)/002.png", "Converted Paper (8)/003.png", "Converted Paper (8)/004.png", "Converted Paper (8)/005.png", "Converted Paper (8)/006.png", "Converted Paper (8)/007.png", "Converted Paper (8)/008.png"]
 
 # Threshold constants for line, gap & column detection 
 LINE_THRESHOLD = 0.02
 GAP_THRESHOLD = 1.8
 COLUMN_THRESHOLD = 0.05
+MARGIN_SIZE = 40  # Margin size in pixels
 
 # Plot vertical & horizontal histograms
 def plot_histograms(binary_img, img_file): 
@@ -136,6 +144,15 @@ def detect_full_width_objects(binary_img, min_height = 30, min_width_ratio = 0.7
     boxes.sort(key = lambda b: b[0])
     return boxes
 
+def save_with_margin(image, filename, margin=MARGIN_SIZE):
+    image_with_margin = cv2.copyMakeBorder(
+        image,
+        margin, margin, margin, margin,
+        cv2.BORDER_CONSTANT,
+        value=(255, 255, 255)
+    )
+    cv2.imwrite(filename, image_with_margin)
+
 # Extract and sace individual paragraphs from each column
 def save_paragraphs(image_name, binary, column_bounds, original_img):
     h, w = binary.shape
@@ -145,15 +162,13 @@ def save_paragraphs(image_name, binary, column_bounds, original_img):
     occupied_rows = set()
     count = 1 
     
-    table_saved = False
     if table_boxes:
-        for i, (y1, y2, x1, x2) in enumerate(table_boxes):
+        for (y1, y2, x1, x2) in table_boxes:
             color_paragraph = original_img[y1:y2, x1:x2]
             filename = f"{image_name[:-4]}_p{count}.png"
-            cv2.imwrite(filename, color_paragraph)
+            save_with_margin(color_paragraph, filename)
             occupied_rows.update(range(y1, y2))
-            table_saved = True
-        count += 1 
+            count += 1 
         
     # Step 2: Process columns for the rest
     for col_index in range(len(column_bounds)):
@@ -180,7 +195,7 @@ def save_paragraphs(image_name, binary, column_bounds, original_img):
             # Generate file name and save the paragraph
             filename = f"{image_name[:-4]}_p{count}.png"
             color_paragraph = original_img[y1:y2, x1:x2]
-            cv2.imwrite(filename, color_paragraph)
+            save_with_margin(color_paragraph, filename)
 
             count += 1
             
