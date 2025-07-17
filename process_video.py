@@ -257,8 +257,6 @@ if __name__ == "__main__":
     # List all .mp4 files
     video_files = list(input_folder.glob("*.mp4"))
     
-
-    
     # Process each video
     for video_file in video_files:
         output_path = Path(output_folder) / f"{video_file.stem}_processed.avi"
