@@ -30,7 +30,7 @@ def plot_histograms(binary_img, img_file):
     
     plt.figure()
     plt.subplots_adjust(wspace = 0.4)
-    
+
     # Vertical Histogram (column detection)
     plt.subplot(1, 2, 1)
     plt.title(f"Vertical Histogram\n{img_file}")
