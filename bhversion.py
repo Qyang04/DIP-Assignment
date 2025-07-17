@@ -8,6 +8,7 @@ Created on Thu Jul 17 12:39:13 2025
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+import os
 
 # List of image files to process 
 img_files = ["Converted Paper (8)/001.png", "Converted Paper (8)/002.png", "Converted Paper (8)/003.png", "Converted Paper (8)/004.png", "Converted Paper (8)/005.png", "Converted Paper (8)/006.png", "Converted Paper (8)/007.png", "Converted Paper (8)/008.png"]
@@ -161,12 +162,18 @@ def save_paragraphs(image_name, binary, column_bounds, original_img):
     table_boxes = detect_full_width_objects(binary,  min_height = 30, min_width_ratio = 0.7, max_top = int(0.2 * h))
     occupied_rows = set()
     count = 1 
+    base_name = os.path.splitext(os.path.basename(image_name))[0]
+
+    # Create subfolder inside "outputs_images" for this image
+    output_folder = os.path.join("outputs_images", base_name)
+    os.makedirs(output_folder, exist_ok=True)  # Ensure output subfolder exists
     
     if table_boxes:
         for (y1, y2, x1, x2) in table_boxes:
             color_paragraph = original_img[y1:y2, x1:x2]
-            filename = f"{image_name[:-4]}_p{count}.png"
-            save_with_margin(color_paragraph, filename)
+            filename = f"{base_name}_p{count}.png"
+            output_image = os.path.join(output_folder, filename)
+            save_with_margin(color_paragraph, output_image)
             occupied_rows.update(range(y1, y2))
             count += 1 
         
@@ -193,9 +200,11 @@ def save_paragraphs(image_name, binary, column_bounds, original_img):
                 continue
 
             # Generate file name and save the paragraph
-            filename = f"{image_name[:-4]}_p{count}.png"
+            # Generate file name and save the paragraph
+            filename = f"{base_name}_p{count}.png"
+            output_image = os.path.join(output_folder, filename)
             color_paragraph = original_img[y1:y2, x1:x2]
-            save_with_margin(color_paragraph, filename)
+            save_with_margin(color_paragraph, output_image)
 
             count += 1
             
