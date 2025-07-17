@@ -29,6 +29,7 @@ def plot_histograms(binary_img, img_file):
     row_pixel_sums = np.sum(binary_img, axis = 1)
     
     plt.figure()
+    plt.subplots_adjust(wspace = 0.4)
     
     # Vertical Histogram (column detection)
     plt.subplot(1, 2, 1)
