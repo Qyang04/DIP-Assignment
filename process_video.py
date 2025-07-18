@@ -220,13 +220,15 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     talking_vid.release()
     out.release()
 
+    print(f"\nProcessing complete. Output saved to {output_path}")
+
     # Show the average brightness of the video and classify the video is taken during nighttime or daytime
     print(f"\nAverage brightness of the video: {average_brightness:.2f}\n")
 
     if is_night:
-        print(f"The {input_path} video is taken during nighttime. Brightness value will be adjusted.")
+        print(f"The {input_path} video is taken during nighttime. Brightness value will be adjusted.{separator}")
     else:
-        print(f"The {input_path} video is taken during daytime. No brightness value will be adjusted.")
+        print(f"The {input_path} video is taken during daytime. No brightness value will be adjusted.{separator}")
 
     # Plot the histogram to visualize the brightness of each video
     plt.figure()
@@ -237,8 +239,6 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     plt.xlim([0, 256])
     plt.grid(False)
     plt.show()
-
-    print(f"\nProcessing complete. Output saved to {output_path}\n{separator}\n")
     
 if __name__ == "__main__":
     # Check the occurance of output folder
