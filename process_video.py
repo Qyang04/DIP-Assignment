@@ -108,10 +108,9 @@ def add_endscreen(writer, endscreen_path, width, height):
         writer.write(end_frame)
     end_vid.release()
 
-
 def process_video(input_path, output_path, talking_path, watermark1_path, watermark2_path, end_screen_path):
-
-    print(f"Processing: {input_path.name}")
+    separator = "=" * 80
+    print(f"{separator}\nProcessing: {input_path.name}\n")
 
     # Load videos and watermarks
     vid = cv2.VideoCapture(str(input_path))
@@ -136,10 +135,6 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     else:
         total_frames = total_no_frames
 
-    # Initialize VideoWriter
-    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-
     # Step 1: Day/Night Detection & Brightness Adjustment
     # Calculate brightness and classification daytime or nighttime
     brightness_values = [] # List to store brightness values for each frame
@@ -152,13 +147,6 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     # Detect if the video is taken during daytime or nighttime after analyzing all frames
     average_brightness = np.mean(brightness_values)
     is_night = classify_day_night(brightness_values) # If the average brightness is less than threshold value, then it is nighttime
-    print(f"Average brightness of the video: {average_brightness:.2f}")
-
-    # Display a message indicating the video is taken during nighttime or daytime and whether brightness adjustment is needed
-    if is_night:
-        print(f"The {input_path} video is taken during nighttime. Brightness value will be adjusted.")
-    else:
-        print(f"The {input_path} video is taken during daytime. No brightness value will be adjusted.")
 
     # Process each frame
     vid.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Rewind video
@@ -169,6 +157,10 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
 
     scale_percent = 30
     lastBackgroundFrame = None
+
+    # Initialize VideoWriter
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     while success or foregroundSuccess:
         # Handle background:
@@ -228,6 +220,14 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     talking_vid.release()
     out.release()
 
+    # Show the average brightness of the video and classify the video is taken during nighttime or daytime
+    print(f"\nAverage brightness of the video: {average_brightness:.2f}\n")
+
+    if is_night:
+        print(f"The {input_path} video is taken during nighttime. Brightness value will be adjusted.")
+    else:
+        print(f"The {input_path} video is taken during daytime. No brightness value will be adjusted.")
+
     # Plot the histogram to visualize the brightness of each video
     plt.figure()
     plt.hist(brightness_values, bins = 60, color = 'grey')
@@ -238,7 +238,7 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     plt.grid(False)
     plt.show()
 
-    print(f"\nProcessing complete. Output saved to {output_path}")
+    print(f"\nProcessing complete. Output saved to {output_path}\n{separator}\n")
     
 if __name__ == "__main__":
     # Check the occurance of output folder
