@@ -226,9 +226,9 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     print(f"\nAverage brightness of the video: {average_brightness:.2f}\n")
 
     if is_night:
-        print(f"The {input_path} video is taken during nighttime. Brightness value will be adjusted.{separator}")
+        print(f"The {input_path} video is taken during nighttime. Brightness value will be adjusted.{separator}\n")
     else:
-        print(f"The {input_path} video is taken during daytime. No brightness value will be adjusted.{separator}")
+        print(f"The {input_path} video is taken during daytime. No brightness value will be adjusted.{separator}\n")
 
     # Plot the histogram to visualize the brightness of each video
     plt.figure()
