@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jul 21 02:30:25 2025
+
+@author: Irenehaha
+"""
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
@@ -75,27 +81,10 @@ def resizeAndOverlayVideo(background, foreground, scale_percent):
     background[0:new_height, 0:new_width] = resizedForegroundVideo
     return background
 
-# === Function to remove black background ===
-def remove_black_background(image_path):
-    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)  # Load BGR image
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    nrow, ncol = gray.shape
-
-    result = np.zeros((nrow, ncol, 4), dtype=np.uint8)
-    result[:, :, :3] = image  # Copy BGR
-
-    for y in range(nrow):
-        for x in range(ncol):
-            result[y, x, 3] = 255 if gray[y, x] > 10 else 0  # Transparent background
-    return result
-
-# === Function to overlay transparent watermark ===
-def overlay_transparent(frame, watermark):
-    watermark = cv2.resize(watermark, (frame.shape[1], frame.shape[0]))
-    alpha = watermark[:, :, 3] / 255.0
-    for c in range(3):
-        frame[:, :, c] = (1 - alpha) * frame[:, :, c] + alpha * watermark[:, :, c]
-    return frame
+# === Function to add watermark ===
+def add_watermark_full(frame, watermark):
+    watermark_resized = cv2.resize(watermark, (frame.shape[1], frame.shape[0]))
+    return cv2.addWeighted(frame, 0.7, watermark_resized, 1.0, 0)
 
 # === Function to append endscreen ===
 def add_endscreen(writer, endscreen_path, width, height):
@@ -108,10 +97,9 @@ def add_endscreen(writer, endscreen_path, width, height):
         writer.write(end_frame)
     end_vid.release()
 
-
 def process_video(input_path, output_path, talking_path, watermark1_path, watermark2_path, end_screen_path):
-
-    print(f"Processing: {input_path.name}")
+    separator = "=" * 80
+    print(f"{separator}\nProcessing: {input_path.name}\n")
 
     # Load videos and watermarks
     vid = cv2.VideoCapture(str(input_path))
@@ -120,9 +108,9 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
         return
   
     talking_vid = cv2.VideoCapture(talking_path)
-    watermark1 = remove_black_background(watermark1_path)
-    watermark2 = remove_black_background(watermark2_path)
-
+    watermark1 = cv2.imread(watermark1_path, cv2.IMREAD_COLOR)
+    watermark2 = cv2.imread(watermark2_path, cv2.IMREAD_COLOR)
+    
     # Get video properties
     fps = vid.get(cv2.CAP_PROP_FPS)
     width = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -136,10 +124,6 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     else:
         total_frames = total_no_frames
 
-    # Initialize VideoWriter
-    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-
     # Step 1: Day/Night Detection & Brightness Adjustment
     # Calculate brightness and classification daytime or nighttime
     brightness_values = [] # List to store brightness values for each frame
@@ -152,13 +136,6 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     # Detect if the video is taken during daytime or nighttime after analyzing all frames
     average_brightness = np.mean(brightness_values)
     is_night = classify_day_night(brightness_values) # If the average brightness is less than threshold value, then it is nighttime
-    print(f"Average brightness of the video: {average_brightness:.2f}")
-
-    # Display a message indicating the video is taken during nighttime or daytime and whether brightness adjustment is needed
-    if is_night:
-        print(f"The {input_path} video is taken during nighttime. Brightness value will be adjusted.")
-    else:
-        print(f"The {input_path} video is taken during daytime. No brightness value will be adjusted.")
 
     # Process each frame
     vid.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Rewind video
@@ -169,6 +146,10 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
 
     scale_percent = 30
     lastBackgroundFrame = None
+
+    # Initialize VideoWriter
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     while success or foregroundSuccess:
         # Handle background:
@@ -199,11 +180,12 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
         if foregroundSuccess:
             frame = resizeAndOverlayVideo(frame, foreground, scale_percent)
 
+        # Step 4: Add Watermark
         if frame is not None:
-            if ((frame_count // int (fps * 4)) % 2) == 0:
-                frame = overlay_transparent(frame, watermark1)
+            if ((frame_count // int(fps * 4)) % 2) == 0:
+                frame = add_watermark_full(frame, watermark1)
             else:
-                frame = overlay_transparent(frame, watermark2)
+                frame = add_watermark_full(frame, watermark2)
 
         # Write processed frame
         if frame is not None:
@@ -228,6 +210,16 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     talking_vid.release()
     out.release()
 
+    print(f"\nProcessing complete. Output saved to {output_path}")
+
+    # Show the average brightness of the video and classify the video is taken during nighttime or daytime
+    print(f"\nAverage brightness of the video: {average_brightness:.2f}\n")
+
+    if is_night:
+        print(f"The {input_path} video is taken during nighttime. Brightness value will be adjusted.\n{separator}\n")
+    else:
+        print(f"The {input_path} video is taken during daytime. No brightness value will be adjusted.\n{separator}\n")
+
     # Plot the histogram to visualize the brightness of each video
     plt.figure()
     plt.hist(brightness_values, bins = 60, color = 'grey')
@@ -237,10 +229,7 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     plt.xlim([0, 256])
     plt.grid(False)
     plt.show()
-
-    print(f"\nProcessing complete. Output saved to {output_path}")
-
-
+    
 if __name__ == "__main__":
     # Check the occurance of output folder
     output_folder = "outputs_Task A"
@@ -256,8 +245,6 @@ if __name__ == "__main__":
     
     # List all .mp4 files
     video_files = list(input_folder.glob("*.mp4"))
-    
-
     
     # Process each video
     for video_file in video_files:
