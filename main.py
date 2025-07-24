@@ -45,31 +45,44 @@ def overlay_talking_video(main_frame, talking_frame):
     main_frame[0:h//4, 0:w//4] = talking_frame
     
     return main_frame
-
-def add_watermark(frame, watermark1, watermark2):
-    h, w = frame.shape[:2]
-    
-    # Resize watermarks
-    watermark1 = cv2.resize(watermark1, (w//5, h//10))
-    watermark2 = cv2.resize(watermark2, (w//5, h//10))
-    
-    # Overlay watermark1 (top-right)
-    frame[0:h//10, w-w//5:w] = watermark1
-    
-    # Overlay watermark2 (bottom-left)
-    frame[h-h//10:h, 0:w//5] = watermark2
-    
-    return frame
-
-def append_end_screen(video_writer, end_screen_path):
-    end_vid = cv2.VideoCapture(end_screen_path)
-    while True:
-        success, frame = end_vid.read()
-        if not success:
-            break
-        video_writer.write(frame)
-    end_vid.release()
 """
+# Function to remove black background for image
+def remove_black_background(image_path):
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)  # Load BGR image
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # Converts the image to grayscale 
+    nrow, ncol = gray.shape   # Gets the dimensions of the grayscale image
+
+    result = np.zeros((nrow, ncol, 4), dtype=np.uint8)  #Creates an empty 4-channel (RGBA) image
+    result[:, :, :3] = image  # Copy the color content from the original image (BGR) into the new RGBA image
+
+    # For each pixel:
+    for y in range(nrow):
+        for x in range(ncol):
+            # If not black (gray > 10), set alpha to fully (means fully visible)
+            # Else, set alpha to 0 which is transparent
+            result[y, x, 3] = 255 if gray[y, x] > 10 else 0  # Transparent background
+    
+    return result # Returns the new image with transparency applied ^-^
+
+# Function to overlay transparent watermark image on top of a frame
+def overlay_transparent(frame, watermark):
+    watermark = cv2.resize(watermark, (frame.shape[1], frame.shape[0])) # Resize the watermark to match with the frame's width and height (just for safe)
+    alpha = watermark[:, :, 3] / 255.0 # Extract and normalized the alpha channel (0-1 value)
+    for c in range(3): # for each color channel(B,G,R)
+        frame[:, :, c] = (1 - alpha) * frame[:, :, c] + alpha * watermark[:, :, c] # Blends the watermak and the frame using alpha transparency
+    
+    return frame # Return the modified frame
+
+# Function to append endscreen to ourput video
+def append_end_vid(writer, endscreen_path, width, height):
+    end_vid = cv2.VideoCapture(endscreen_path) #open the endscreen video file
+    while True:
+        success_end, end_frame = end_vid.read() #Read the video frame-by-frame
+        if not success_end: 
+            break # stop when it reaches the end
+        end_frame = cv2.resize(end_frame, (width, height)) # resizes each endscreen frame to match with main video's resolution (just for safety)
+        writer.write(end_frame) # appends the frame to the output video
+    end_vid.release() # releases the endscreen video 
 
 def process_video(input_path, output_path):
 #def process_video(input_path, output_path, talking_path, watermark1_path, watermark2_path, end_screen_path):
@@ -79,8 +92,9 @@ def process_video(input_path, output_path):
     # Load videos and watermarks
     vid = cv2.VideoCapture(input_path)
 #    talking_vid = cv2.VideoCapture(talking_path)
-#    watermark1 = cv2.imread(watermark1_path, cv2.IMREAD_UNCHANGED)
-#    watermark2 = cv2.imread(watermark2_path, cv2.IMREAD_UNCHANGED)
+    # --Load watermark images and makes the black background transparent
+    watermark1 = remove_black_background(watermark1_img)
+    watermark2 = remove_black_background(watermark2_img)
     
     # Get video properties
     fps = vid.get(cv2.CAP_PROP_FPS)
@@ -133,11 +147,22 @@ def process_video(input_path, output_path):
             frame = overlay_talking_video(frame, talking_frame)
         else:
             talking_vid.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reset if video ends
-        
-        # Step 4: Add Watermarks
-        frame = add_watermark(frame, watermark1, watermark2)
         """
-        # Write processed frame
+        # Step 4: Add Watermarks
+        # To loop through all the frames 
+        success, frame = vid.read()  # Read a single frame
+        if not success: # If reading fails (means end of file)
+            break  # break the loop
+
+        frame = cv2.resize(frame, (1280, 720))  # resize the frame to make sure every fame is the same resolution as the output video
+
+        # Alternate watermark 1 and watermark 2 every 4 seconds / every 120 frames) (4s * 30fps = 120 frames) 
+        if (frame_count // 120) % 2 == 0:
+            frame = overlay_transparent(frame, watermark1)
+        else:
+            frame = overlay_transparent(frame, watermark2)
+        
+        # Write processed frame to the output video file
         out.write(frame)
         
         if frame_count % 100 == 0 or frame_count == int(total_no_frames)-1:
@@ -145,7 +170,7 @@ def process_video(input_path, output_path):
                   f"Brightness: {brightness_values[frame_count]:.1f}")
     
     # Step 5: Append End Screen
-#    append_end_screen(out, end_screen_path)
+    append_end_vid(out, end_screen_video, 1280, 720)
     
     # Release resources
     vid.release()
@@ -169,9 +194,9 @@ if __name__ == "__main__":
     input_video = "Recorded Videos (4)/singapore.mp4"
     output_video = "processed_video.avi"
 #    talking_video = "talking.mp4"
-#    watermark1_img = "watermark1.png"
-#    watermark2_img = "watermark2.png"
-#    end_screen_video = "endscreen.mp4"
+    watermark1_img = "watermark1.png"
+    watermark2_img = "watermark2.png"
+    end_screen_video = "endscreen.mp4"
     
     process_video(input_video, output_video)
 #    process_video(input_video, output_video, talking_video, watermark1_img, watermark2_img, end_screen_video)
