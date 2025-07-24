@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jul 21 02:30:25 2025
-
-@author: Irenehaha
-"""
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
@@ -29,21 +23,31 @@ def blur_faces(frame, previous_blurred=False):
     if face_cascade.empty():
         raise FileNotFoundError("face_detector.xml not found or invalid")
 
-    faces = face_cascade.detectMultiScale(frame, 1.3, 5)
+    # Use even stricter detection parameters with additional validation
+    faces = face_cascade.detectMultiScale(frame, 1.1, 7, minSize=(20, 20), flags=cv2.CASCADE_SCALE_IMAGE)
+    
+    # Additional validation: check aspect ratio of detected faces
+    valid_faces = []
+    for (x, y, w, h) in faces:
+        aspect_ratio = w / float(h)
+        if 0.7 < aspect_ratio < 1.4:  # Typical face aspect ratio range
+            valid_faces.append((x, y, w, h))
+    faces = np.array(valid_faces)
 
     if len(faces) == 0:
         return frame
 
     for (x, y, w, h) in faces:
         if not previous_blurred:
-            x, y = max(0, x - w//5), max(0, y - h//5)
-            w, h = min(frame.shape[1] - x, w + w//2), min(frame.shape[0] - y, h + h//2)
+            # Only apply minimal expansion to face region
+            x, y = max(0, x - w//20), max(0, y - h//20)
+            w, h = min(frame.shape[1] - x, w + w//10), min(frame.shape[0] - y, h + h//10)
     
-            # based on face size to add blur
-            blur_size = max(w, h) // 2
+            # Adjust blur parameters for smoother transition
+            blur_size = max(w, h) // 3
             kernel_size = blur_size if blur_size % 2 == 1 else blur_size + 1
             face_roi = frame[y:y+h, x:x+w]
-            frame[y:y+h, x:x+w] = cv2.GaussianBlur(face_roi, (kernel_size, kernel_size), 30)
+            frame[y:y+h, x:x+w] = cv2.GaussianBlur(face_roi, (kernel_size, kernel_size), 20)
 
     return frame
 
