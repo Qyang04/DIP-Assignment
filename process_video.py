@@ -29,21 +29,31 @@ def blur_faces(frame, previous_blurred=False):
     if face_cascade.empty():
         raise FileNotFoundError("face_detector.xml not found or invalid")
 
-    faces = face_cascade.detectMultiScale(frame, 1.3, 5)
+    # Use even stricter detection parameters with additional validation
+    faces = face_cascade.detectMultiScale(frame, 1.1, 7, minSize=(20, 20), flags=cv2.CASCADE_SCALE_IMAGE)
+    
+    # Additional validation: check aspect ratio of detected faces
+    valid_faces = []
+    for (x, y, w, h) in faces:
+        aspect_ratio = w / float(h)
+        if 0.7 < aspect_ratio < 1.4:  # Typical face aspect ratio range
+            valid_faces.append((x, y, w, h))
+    faces = np.array(valid_faces)
 
     if len(faces) == 0:
         return frame
 
     for (x, y, w, h) in faces:
         if not previous_blurred:
-            x, y = max(0, x - w//5), max(0, y - h//5)
-            w, h = min(frame.shape[1] - x, w + w//2), min(frame.shape[0] - y, h + h//2)
+            # Only apply minimal expansion to face region
+            x, y = max(0, x - w//20), max(0, y - h//20)
+            w, h = min(frame.shape[1] - x, w + w//10), min(frame.shape[0] - y, h + h//10)
     
-            # based on face size to add blur
-            blur_size = max(w, h) // 2
+            # Adjust blur parameters for smoother transition
+            blur_size = max(w, h) // 3
             kernel_size = blur_size if blur_size % 2 == 1 else blur_size + 1
             face_roi = frame[y:y+h, x:x+w]
-            frame[y:y+h, x:x+w] = cv2.GaussianBlur(face_roi, (kernel_size, kernel_size), 30)
+            frame[y:y+h, x:x+w] = cv2.GaussianBlur(face_roi, (kernel_size, kernel_size), 20)
 
     return frame
 
@@ -84,7 +94,7 @@ def resizeAndOverlayVideo(background, foreground, scale_percent):
 # === Function to add watermark ===
 def add_watermark_full(frame, watermark):
     watermark_resized = cv2.resize(watermark, (frame.shape[1], frame.shape[0]))
-    return cv2.addWeighted(frame, 0.7, watermark_resized, 1.0, 0)
+    return cv2.addWeighted(frame, 1.0, watermark_resized, 0.7, 0)
 
 # === Function to append endscreen ===
 def add_endscreen(writer, endscreen_path, width, height):
@@ -165,7 +175,7 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
 
         # If it is nightime, brighten the frame
         if is_night and frame is not None: 
-            frame = brighten(frame)
+            frame = brighten(frame, factor = 1.1)
 
         # Step 2: Face Blurring
         if frame is not None:
