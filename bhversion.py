@@ -10,28 +10,20 @@ import numpy as np
 from matplotlib import pyplot as plt
 import os
 
-# List of image files to process 
 img_files = ["Converted Paper (8)/001.png", "Converted Paper (8)/002.png", "Converted Paper (8)/003.png", "Converted Paper (8)/004.png", "Converted Paper (8)/005.png", "Converted Paper (8)/006.png", "Converted Paper (8)/007.png", "Converted Paper (8)/008.png"]
 
-# Threshold constants for line, gap & column detection 
 LINE_THRESHOLD = 0.02
 GAP_THRESHOLD = 1.8
 COLUMN_THRESHOLD = 0.05
-MARGIN_SIZE = 40  # Margin size in pixels
+MARGIN_SIZE = 40 
 
-# Plot vertical & horizontal histograms
+# Plot vertical and horizontal histograms to visualize black pixel distribution
 def plot_histograms(binary_img, img_file): 
-    
-    # Sum black pixels along columns (vertical projection)
     column_pixel_sums = np.sum(binary_img, axis = 0)
-    
-    # Sum black pixels along rows (horizontal projection)
     row_pixel_sums = np.sum(binary_img, axis = 1)
-    
     plt.figure()
     plt.subplots_adjust(wspace = 0.4)
 
-    # Vertical Histogram (column detection)
     plt.subplot(1, 2, 1)
     plt.title(f"Vertical Histogram\n{img_file}")
     plt.xlabel("Column Number")
@@ -40,18 +32,18 @@ def plot_histograms(binary_img, img_file):
     plt.ylim([0, np.max(column_pixel_sums) * 1.1])
     plt.plot(column_pixel_sums)
     
-    # Horizontal Histogram (row detection)
     plt.subplot(1, 2, 2)
     plt.title(f"Horizontal Histogram\n{img_file}")
     plt.barh(range(len(row_pixel_sums)), row_pixel_sums, height=1.0)
     plt.xlabel("Count")
     plt.ylabel("Row Number")
-    plt.xlim([0, np.max(row_pixel_sums) * 1.1])  # Auto-scale with padding
+    plt.xlim([0, np.max(row_pixel_sums) * 1.1]) 
     plt.ylim([0, len(row_pixel_sums)])
     plt.plot(row_pixel_sums)
     
     plt.show()
-    
+
+# Detect text lines in a column image using horizontal pixel projection
 def detect_lines(column_img, LINE_THRESHOLD): 
     row_pixel_sums = np.sum(column_img, axis=1)
     threshold = np.max(row_pixel_sums) * LINE_THRESHOLD
@@ -66,17 +58,14 @@ def detect_lines(column_img, LINE_THRESHOLD):
             line_start = None
         row_index += 1
 
-    # Add the last line if image ends with text 
     if line_start is not None: 
         line_ranges.append((line_start, len(row_pixel_sums)))
-
     return line_ranges
 
-# Calculate the minimum gap between lines to consider as paragraph separation 
+# Calculate the minimum vertical gap required to separate paragraphs
 def calculate_min_gap(lines, GAP_THRESHOLD): 
     line_gaps = []
     
-    # Calculate gaps between consecutive lines
     for i in range(1, len(lines)):
         current_start = lines[i][0]
         previous_end = lines[i-1][1]
@@ -87,54 +76,48 @@ def calculate_min_gap(lines, GAP_THRESHOLD):
         return 0
 
     avg_gap = sum(line_gaps) / len(line_gaps)
-    min_gap = avg_gap * GAP_THRESHOLD # paragraph gap is larger than average line gap
-
+    min_gap = avg_gap * GAP_THRESHOLD
     return min_gap
 
-# Group lines into paragraphs based on gap distances
+# Group detected text lines into paragraphs using the calculated minimum gap distance
 def group_lines_into_paragraphs(lines, min_gap): 
     paragraphs = []
     current_paragraph = [lines[0]]
 
     for i in range(1, len(lines)): 
         gap = lines[i][0] - lines[i-1][1]
-        # same paragraph
+
         if gap < min_gap:
             current_paragraph.append(lines[i]) 
-        # end current paragraph and start new one
         else:
             paragraphs.append((current_paragraph[0][0], current_paragraph[-1][1]))
             current_paragraph = [lines[i]]
 
-    # Add the last paragraph
     if current_paragraph:
         paragraphs.append((current_paragraph[0][0], current_paragraph[-1][1]))
-
     return paragraphs
     
 # Detect columns in the document by analyzing vertical pixel density
 def detect_columns(binary, threshold_ratio = COLUMN_THRESHOLD): 
     column_pixel_sums = np.sum(binary, axis = 0)
     col_threshold = np.max(column_pixel_sums) * threshold_ratio
-    
     column_bounds = []
     inside_column = False
-    
     x = 0
 
-    # Find blocks of columns that exceeds the threshold 
     for value in column_pixel_sums:
         if value > col_threshold and not inside_column:
-            start_x = x # column starts 
+            start_x = x 
             inside_column = True
         elif value <= col_threshold and inside_column:
-            column_bounds.append((start_x, x)) # column ends
+            column_bounds.append((start_x, x)) 
             inside_column = False
         x += 1 
     if inside_column:
         column_bounds.append((start_x, x))
     return column_bounds
     
+# Detect wide objects that span almost the full width of the page.
 def detect_full_width_objects(binary_img, min_height = 30, min_width_ratio = 0.7, max_top = 250):
     contours, _ = cv2.findContours(binary_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     boxes = []
@@ -146,6 +129,7 @@ def detect_full_width_objects(binary_img, min_height = 30, min_width_ratio = 0.7
     boxes.sort(key = lambda b: b[0])
     return boxes
 
+# Save an image with a white margin around it for better visual separation
 def save_with_margin(image, filename, margin=MARGIN_SIZE):
     image_with_margin = cv2.copyMakeBorder(
         image,
@@ -155,7 +139,7 @@ def save_with_margin(image, filename, margin=MARGIN_SIZE):
     )
     cv2.imwrite(filename, image_with_margin)
 
-# Extract and sace individual paragraphs from each column
+# Extract and save individual paragraph images from detected columns and full-width object
 def save_paragraphs(image_name, binary, column_bounds, original_img):
     h, w = binary.shape
     
@@ -165,9 +149,8 @@ def save_paragraphs(image_name, binary, column_bounds, original_img):
     count = 1 
     base_name = os.path.splitext(os.path.basename(image_name))[0]
 
-    # Create subfolder inside "outputs_images" for this image
     output_folder = os.path.join("outputs_Task B", base_name)
-    os.makedirs(output_folder, exist_ok=True)  # Ensure output subfolder exists
+    os.makedirs(output_folder, exist_ok=True)  
     
     if table_boxes:
         for (y1, y2, x1, x2) in table_boxes:
@@ -195,41 +178,31 @@ def save_paragraphs(image_name, binary, column_bounds, original_img):
                 continue
             paragraph_img = column_img[y1:y2, :]
             h_p, w_p = paragraph_img.shape
-            
-            # Skip very tall, thin objects (often image artifacts)
+
             if h_p / w_p > 4.0 and w_p < 100:
                 continue
 
-            # Generate file name and save the paragraph
-            # Generate file name and save the paragraph
             filename = f"{base_name}_p{count}.png"
             output_image = os.path.join(output_folder, filename)
             color_paragraph = original_img[y1:y2, x1:x2]
             save_with_margin(color_paragraph, output_image)
-
-            count += 1
-            
+            count += 1           
     return count-1
 
-# Process a single image file to extract paragraphs
+# Process a single image: convert to binary, detect layout, extract paragraphs, and save
 def process_image(image_name):
     try:
-        # Read the original colour image
         original_image = cv2.imread(image_name)
         if original_image is None:
             print(f"Failed to read image: {image_name}")
             return 0
-    
-        # Convert to grayscale for processing
+
         gray_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
     
-        # Binarize using Otsu's method (automatic thresholding)
         _, binary_image = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     
-        # Plot histogram for visualization
         plot_histograms(binary_image, image_name)
     
-        # Detect columns and save paragraphs 
         column_bounds = detect_columns(binary_image)
         return save_paragraphs(image_name, binary_image, column_bounds, original_image)
     
@@ -237,18 +210,16 @@ def process_image(image_name):
         print(f"Error: {str(e)}")
         return 0
     
-# Main function to process all images and display summary 
+# Main function: Process all input images, extract paragraphs, and display summary 
 def main():
     total_files = 0
     summary = []
     
-    # process each image file
     for img_file in img_files:
         count = process_image(img_file)
         summary.append((img_file, count))
         total_files += count
 
-    # Print summary of extraction
     print("==============================================")
     print("Extraction Summary:")
     print("==============================================")
@@ -260,5 +231,6 @@ def main():
     print(f"Total paragraphs extracted: {total_files}")
     print("==============================================") 
 
+# Ensures the main function only runs when the script is executed directly
 if __name__ == "__main__":
     main()
