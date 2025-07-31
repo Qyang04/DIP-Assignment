@@ -72,7 +72,7 @@ def resizeAndOverlayVideo(background, foreground, scale_percent):
 # Overlay the watermark imgae across the entire frame
 def add_watermark_full(frame, watermark):
     watermark_resized = cv2.resize(watermark, (frame.shape[1], frame.shape[0]))
-    return cv2.addWeighted(frame, 1.0, watermark_resized, 1, 1)
+    return cv2.addWeighted(frame, 1.0, watermark_resized, 1.0, 1.0)
 
 # Append the endscreen video after main video is processed
 def add_endscreen(writer, endscreen_path, width, height):
