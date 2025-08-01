@@ -1,17 +1,13 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Jul 17 12:39:13 2025
-
-@author: Sia Jia Le
-"""
-
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 import os
 
+# List of image file paths to process
 img_files = ["Converted Paper (8)/001.png", "Converted Paper (8)/002.png", "Converted Paper (8)/003.png", "Converted Paper (8)/004.png", "Converted Paper (8)/005.png", "Converted Paper (8)/006.png", "Converted Paper (8)/007.png", "Converted Paper (8)/008.png"]
 
+# Threshold values used for detecting lines, gaps between paragraphs, and columns
+# Margin added around extracted paragraph images
 LINE_THRESHOLD = 0.02
 GAP_THRESHOLD = 1.8
 COLUMN_THRESHOLD = 0.05
@@ -24,6 +20,7 @@ def plot_histograms(binary_img, img_file):
     plt.figure()
     plt.subplots_adjust(wspace = 0.4)
 
+    # Vertical histogram (columns)
     plt.subplot(1, 2, 1)
     plt.title(f"Vertical Histogram\n{img_file}")
     plt.xlabel("Column Number")
@@ -32,6 +29,7 @@ def plot_histograms(binary_img, img_file):
     plt.ylim([0, np.max(column_pixel_sums) * 1.1])
     plt.plot(column_pixel_sums)
     
+    # Horizontal histogram (rows)
     plt.subplot(1, 2, 2)
     plt.title(f"Horizontal Histogram\n{img_file}")
     plt.barh(range(len(row_pixel_sums)), row_pixel_sums, height=1.0)
@@ -43,7 +41,8 @@ def plot_histograms(binary_img, img_file):
     
     plt.show()
 
-# Detect text lines in a column image using horizontal pixel projection
+# Detect the start and end of text lines in a binary image
+# Use row-wise pixel density to find where lines begin and end
 def detect_lines(column_img, LINE_THRESHOLD): 
     row_pixel_sums = np.sum(column_img, axis=1)
     threshold = np.max(row_pixel_sums) * LINE_THRESHOLD
@@ -63,6 +62,7 @@ def detect_lines(column_img, LINE_THRESHOLD):
     return line_ranges
 
 # Calculate the minimum vertical gap required to separate paragraphs
+# Based on average vertical distances between lines
 def calculate_min_gap(lines, GAP_THRESHOLD): 
     line_gaps = []
     
@@ -80,6 +80,7 @@ def calculate_min_gap(lines, GAP_THRESHOLD):
     return min_gap
 
 # Group detected text lines into paragraphs using the calculated minimum gap distance
+# If the gap between two lines is smaller than the minimum gap, they are same paragraph
 def group_lines_into_paragraphs(lines, min_gap): 
     paragraphs = []
     current_paragraph = [lines[0]]
@@ -97,7 +98,8 @@ def group_lines_into_paragraphs(lines, min_gap):
         paragraphs.append((current_paragraph[0][0], current_paragraph[-1][1]))
     return paragraphs
     
-# Detect columns in the document by analyzing vertical pixel density
+# Detect vertical regions (columns) in the document by analyzing vertical pixel density
+# Identify column start and end positions based on whether the pixel intensity exceeds a defined threshold
 def detect_columns(binary, threshold_ratio = COLUMN_THRESHOLD): 
     column_pixel_sums = np.sum(binary, axis = 0)
     col_threshold = np.max(column_pixel_sums) * threshold_ratio
@@ -117,7 +119,7 @@ def detect_columns(binary, threshold_ratio = COLUMN_THRESHOLD):
         column_bounds.append((start_x, x))
     return column_bounds
     
-# Detect wide objects that span almost the full width of the page.
+# Detect full-width horizontal elements (like tables) that span nearly the full width of the page
 def detect_full_width_objects(binary_img, min_height = 30, min_width_ratio = 0.7, max_top = 250):
     contours, _ = cv2.findContours(binary_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     boxes = []
@@ -139,11 +141,11 @@ def save_with_margin(image, filename, margin=MARGIN_SIZE):
     )
     cv2.imwrite(filename, image_with_margin)
 
-# Extract and save individual paragraph images from detected columns and full-width object
+# Extract and save individual paragraph images for a given image
 def save_paragraphs(image_name, binary, column_bounds, original_img):
     h, w = binary.shape
     
-    # Step 1: Detect full-width objects
+    # Step 1: Detect full-width objects like table at top
     table_boxes = detect_full_width_objects(binary,  min_height = 30, min_width_ratio = 0.7, max_top = int(0.2 * h))
     occupied_rows = set()
     count = 1 
@@ -161,7 +163,7 @@ def save_paragraphs(image_name, binary, column_bounds, original_img):
             occupied_rows.update(range(y1, y2))
             count += 1 
         
-    # Step 2: Process columns for the rest
+    # Step 2: Process columns for text paragraphs, images, and tables
     for col_index in range(len(column_bounds)):
         x1, x2 = column_bounds[col_index]
         column_img = binary[:, x1:x2] # Extract column
@@ -189,7 +191,7 @@ def save_paragraphs(image_name, binary, column_bounds, original_img):
             count += 1           
     return count-1
 
-# Process a single image: convert to binary, detect layout, extract paragraphs, and save
+# Process a single image: convert to binary, visualize with histograms, detect layout, extract paragraphs, and save
 def process_image(image_name):
     try:
         original_image = cv2.imread(image_name)
@@ -210,6 +212,7 @@ def process_image(image_name):
         print(f"Error: {str(e)}")
         return 0
     
+# Entry point of the script
 # Main function: Process all input images, extract paragraphs, and display summary 
 def main():
     total_files = 0
@@ -231,6 +234,6 @@ def main():
     print(f"Total paragraphs extracted: {total_files}")
     print("==============================================") 
 
-# Ensures the main function only runs when the script is executed directly
+# Run the program
 if __name__ == "__main__":
     main()
