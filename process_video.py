@@ -66,20 +66,23 @@ def resizeAndOverlayVideo(background, foreground, scale_percent):
     # Resize the foreground frame to the new dimensions using area-based interpolation
     resizedForegroundVideo = cv2.resize(foreground, new_frame_size, interpolation = cv2.INTER_AREA)
 
-    # Define the thickness and add a black border
+    # Define the thickness and add a black border 
     border_thickness = 5
     resizedForegroundVideo = cv2.copyMakeBorder(resizedForegroundVideo, top=border_thickness, bottom=border_thickness, left=border_thickness,
-                                                right=border_thickness, borderType=cv2.BORDER_CONSTANT, value=0)
+                                                right=border_thickness, borderType=cv2.BORDER_CONSTANT, value=0) 
 
+    # Adjust overlay dimensions to include border
     new_height += 2 * border_thickness
     new_width += 2 * border_thickness
 
+    # Resize background if necessary to match overlay
     bg_height, bg_width = background.shape[:2]
 
-     # Ensure the background is large enough to fit the resized video
+    # Ensure the background is large enough to fit the resized video
     if bg_height < new_height or bg_width < new_width:
         background = cv2.resize(background, (max(new_width, bg_width), max(new_height, bg_height)))
 
+    # Overlay the resized foreground video onto the background video at the top-left corner
     background[0:new_height, 0:new_width] = resizedForegroundVideo
     return background
 
@@ -88,7 +91,7 @@ def add_watermark_full(frame, watermark):
     watermark_resized = cv2.resize(watermark, (frame.shape[1], frame.shape[0]))
     return cv2.addWeighted(frame, 1.0, watermark_resized, 1.0, 1.0)
 
-# Append the endscreen video to the end of the processed main video
+# Append the end screen video to the end of the processed main video
 def add_endscreen(writer, endscreen_path, width, height):
     end_vid = cv2.VideoCapture(endscreen_path)
     while True:
