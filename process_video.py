@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jul 21 02:30:25 2025
-
-@author: Irenehaha
-"""
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
@@ -11,11 +5,13 @@ import os
 from pathlib import Path
 
 # Calculate the average brightness of a single frame in the video
+# Convert the video frame to grayscale
 def calculate_brightness(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) 
     return np.mean(gray)
 
 # Detect the video as daytime or nightime based on average brightness of the frame
+# If the brightness is below the threshold, it is considered nighttime.
 def classify_day_night(brightness_values, night_threshold=100):
     return np.mean(brightness_values) < night_threshold
 
@@ -23,7 +19,7 @@ def classify_day_night(brightness_values, night_threshold=100):
 def brighten(frame, factor=1.6):
     return np.clip(frame * factor, 0, 255).astype(np.uint8)
 
-# Detect and blur face in a frame using Haar Cascade
+# Detect faces in a frame using Haar Cascade classifier and apply a blur over the face regions
 def blur_faces(frame, previous_blurred=False):
     face_cascade = cv2.CascadeClassifier("face_detector.xml")
     if face_cascade.empty():
@@ -31,38 +27,48 @@ def blur_faces(frame, previous_blurred=False):
     
     faces = face_cascade.detectMultiScale(frame, 1.3, 5)
 
+    # If no faces are detected, return the original frame without modification
     if len(faces) == 0:
         return frame
+    
+    # Loop through each detected face
     for (x, y, w, h) in faces:
         if not previous_blurred:
+            # Expand the face bounding box slightly for more natural blur
             x, y = max(0, x - w//5), max(0, y - h//5)
             w, h = min(frame.shape[1] - x, w + w//2), min(frame.shape[0] - y, h + h//2)
     
+            # Calculate blur kernel size based on the size of the detected face
             blur_size = max(w, h) // 2
             kernel_size = blur_size if blur_size % 2 == 1 else blur_size + 1
             face_roi = frame[y:y+h, x:x+w]
             frame[y:y+h, x:x+w] = cv2.GaussianBlur(face_roi, (kernel_size, kernel_size), 30)
     return frame
 
-# Resize and overlay the talking video (foreground video) onto the main frame
+# Resize and overlay the talking video (foreground video) to a given percentage scale
+# Add a border to the talking video, and overlay it onto the top-left corner of the main video
 def resizeAndOverlayVideo(background, foreground, scale_percent):
     height, width, _ = foreground.shape
 
+    # Calculate new dimensions based on the scaling percentage
     new_width = int(width*scale_percent/100)
     new_height = int(height*scale_percent/100)
     new_frame_size = (new_width, new_height)
 
+    # Resize the foreground frame to the new dimensions using area-based interpolation
     resizedForegroundVideo = cv2.resize(foreground, new_frame_size, interpolation = cv2.INTER_AREA)
 
+    # Define the thickness and add a black border
     border_thickness = 5
     resizedForegroundVideo = cv2.copyMakeBorder(resizedForegroundVideo, top=border_thickness, bottom=border_thickness, left=border_thickness,
-                                                right=border_thickness, borderType=cv2.BORDER_CONSTANT, value=0) #value = 0 means black (applies to all channels)
+                                                right=border_thickness, borderType=cv2.BORDER_CONSTANT, value=0)
 
     new_height += 2 * border_thickness
     new_width += 2 * border_thickness
 
     bg_height, bg_width = background.shape[:2]
 
+     # Ensure the background is large enough to fit the resized video
     if bg_height < new_height or bg_width < new_width:
         background = cv2.resize(background, (max(new_width, bg_width), max(new_height, bg_height)))
 
@@ -74,7 +80,7 @@ def add_watermark_full(frame, watermark):
     watermark_resized = cv2.resize(watermark, (frame.shape[1], frame.shape[0]))
     return cv2.addWeighted(frame, 1.0, watermark_resized, 1.0, 1.0)
 
-# Append the endscreen video after main video is processed
+# Append the endscreen video to the end of the processed main video
 def add_endscreen(writer, endscreen_path, width, height):
     end_vid = cv2.VideoCapture(endscreen_path)
     while True:
@@ -85,20 +91,24 @@ def add_endscreen(writer, endscreen_path, width, height):
         writer.write(end_frame)
     end_vid.release()
 
-# Main processing pipeline for video
+# Main function that processes an input video through a complete pipeline
+# Handle reading frames, synchronize overlays, and save the final output
 def process_video(input_path, output_path, talking_path, watermark1_path, watermark2_path, end_screen_path):
     separator = "=" * 80
     print(f"{separator}\nProcessing: {input_path.name}\n")
 
+    # Load the main input video
     vid = cv2.VideoCapture(str(input_path))
     if not vid.isOpened():
         print(f"Failed to open{input_path.name}")
         return
-  
+    
+    # Load the talking video and watermark images
     talking_vid = cv2.VideoCapture(talking_path)
     watermark1 = cv2.imread(watermark1_path, cv2.IMREAD_COLOR)
     watermark2 = cv2.imread(watermark2_path, cv2.IMREAD_COLOR)
-    
+
+    # Extract basic metadata from the main video
     fps = vid.get(cv2.CAP_PROP_FPS)
     width = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -106,34 +116,39 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     total_no_foreground_frames = talking_vid.get(cv2.CAP_PROP_FRAME_COUNT)
     total_frames = 0
 
+    # Determine the total number of frames to process
     if total_no_frames < total_no_foreground_frames:
         total_frames = total_no_foreground_frames
     else:
         total_frames = total_no_frames
 
-    # Step 1: Day/Night Detection & Brightness Adjustment
+    # Step 1: Day/night detection & brightness adjustment
     brightness_values = []
     for frame_count in range(0, int(total_no_frames)):
         success, frame = vid.read()
         if not success:
             break
         brightness_values.append(calculate_brightness(frame))
-
+    
+    # Compute average brightness and classify video as night or day
     average_brightness = np.mean(brightness_values)
     is_night = classify_day_night(brightness_values) 
 
+    # Reset video pointer back to the first frame after scanning
     vid.set(cv2.CAP_PROP_POS_FRAMES, 0) 
     frame_count = 0
 
+    # Read the first frame of both main and talking videos
     success, frame = vid.read()
     foregroundSuccess, foreground = talking_vid.read()
-
     scale_percent = 30
     lastBackgroundFrame = None
 
+    # Initialize output writer with proper encoding and frame size
     fourcc = cv2.VideoWriter_fourcc(*'MJPG')
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
+    # Main frame processing loop
     while success or foregroundSuccess:
         if success:
             lastBackgroundFrame = frame.copy()
@@ -146,15 +161,15 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
         if is_night and frame is not None: 
             frame = brighten(frame)
 
-        # Step 2: Face Blurring
+        # Step 2: Face blurring
         if frame is not None:
             frame = blur_faces(frame)
 
-        # Step 3: Overlay Talking Video
+        # Step 3: Overlay talking video
         if foregroundSuccess:
             frame = resizeAndOverlayVideo(frame, foreground, scale_percent)
 
-        # Step 4: Adding Watermark Image (alternates every 4 seconds)
+        # Step 4: Adding watermark images (alternate every 4 seconds)
         if frame is not None:
             if ((frame_count // int(fps * 4)) % 2) == 0:
                 frame = add_watermark_full(frame, watermark1)
@@ -167,6 +182,7 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
         foregroundSuccess, foreground = talking_vid.read()
         frame_count += 1
 
+        # Print progress every 100 frames or at the last frame
         if frame_count % 100 == 0 or frame_count == int(total_frames)-1:
             if frame_count < len(brightness_values):
                 brightness_info = f"Brightness: {brightness_values[frame_count]:.1f}"
@@ -174,7 +190,7 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
                 brightness_info = "Brightness: N/A"
             print(f"Processing frame {frame_count}/{int(total_frames)} | {brightness_info}")
 
-    # Step 5: Append End Screen
+    # Step 5: Append end screen video
     add_endscreen(out, end_screen_path, width, height)
 
     # Release resources
@@ -182,6 +198,7 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     talking_vid.release()
     out.release()
 
+    # Display summary messages
     print(f"\nProcessing complete. Output saved to {output_path}")
     print(f"\nAverage brightness of the video: {average_brightness:.2f}\n")
 
@@ -190,6 +207,7 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     else:
         print(f"The {input_path} video is taken during daytime. No brightness value will be adjusted.\n{separator}\n")
 
+    # Plot histograms to visualize the distribution of brightness values across all video frames
     plt.figure()
     plt.hist(brightness_values, bins = 60, color = 'grey')
     plt.xlabel("Average Brightness Value")
@@ -199,7 +217,9 @@ def process_video(input_path, output_path, talking_path, watermark1_path, waterm
     plt.grid(False)
     plt.show()
 
-# Main Loop: Process each .mp4 video in the input folder and save the processed output
+# Entry point of the script
+# Create the output folder, read all input videos in a directory, process each video one by one using the process_video function
+# Define the input paths for the taking video, watermark images, and end screen video
 if __name__ == "__main__":
     output_folder = "outputs_Task A"
     os.makedirs(output_folder, exist_ok=True)  
